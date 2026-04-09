@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anatomy Active Recall App</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --success: #22c55e;
+            --error: #ef4444;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        button, select {
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover, select:hover {
+            border-color: var(--primary);
+        }
+        button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .app-container {
+            display: flex;
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .image-container {
+            position: relative;
+            flex: 2;
+            background: var(--surface);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .image-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 4px;
+        }
+        /* Targets for Drag & Drop and Active Recall */
+        .target {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px dashed var(--primary);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transform: translate(-50%, -50%);
+            min-width: 100px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .target.correct {
+            border-color: var(--success);
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+        }
+        .target.incorrect {
+            border-color: var(--error);
+            background: rgba(239, 68, 68, 0.1);
+        }
+        .target input {
+            width: 100px;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            outline: none;
+        }
+        .sidebar {
+            flex: 1;
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .draggable-item {
+            padding: 10px 15px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: grab;
+            font-weight: 500;
+            text-align: center;
+            user-select: none;
+        }
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+        .hidden {
+            display: none !important;
+        }
+        #check-answers-btn {
+            margin-top: 20px;
+            background: var(--primary);
+            color: white;
+            width: 100%;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Anatomy Study Tool</h1>
+        <div class="controls">
+            <select id="system-select">
+                <option value="respiratory">Respiratory System</option>
+                <option value="digestive">Digestive System</option>
+            </select>
+            <button id="mode-drag" class="active">Drag & Drop</button>
+            <button id="mode-type">Active Recall (Type)</button>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <div class="image-container" id="image-area">
+            <img id="anatomy-image" src="" alt="Anatomy Diagram">
+            <div id="targets-layer"></div>
+        </div>
+        
+        <div class="sidebar" id="sidebar">
+            <h3 style="margin-top:0">Terms Bank</h3>
+            <div id="terms-container"></div>
+            <button id="check-answers-btn" class="hidden">Check Answers</button>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURATION: Adjust the x and y percentages (0-100) to move the boxes over the ends of the lines on your specific images.
+        const anatomyData = {
+            respiratory: {
+                image: 'respiratorypractical.jpeg',
+                terms: [
+                    { id: 'nasal_cavity', label: 'Nasal cavity', x: 25, y: 20 },
+                    { id: 'nostril', label: 'Nostril', x: 25, y: 25 },
+                    { id: 'oral_cavity', label: 'Oral cavity', x: 25, y: 30 },
+                    { id: 'pharynx', label: 'Pharynx', x: 75, y: 30 },
+                    { id: 'larynx', label: 'Larynx', x: 25, y: 40 },
+                    { id: 'trachea', label: 'Trachea', x: 75, y: 45 },
+                    { id: 'right_bronchus', label: 'Right main bronchus', x: 25, y: 60 },
+                    { id: 'left_bronchus', label: 'Left main bronchus', x: 75, y: 60 },
+                    { id: 'right_lung', label: 'Right lung', x: 25, y: 75 },
+                    { id: 'left_lung', label: 'Left lung', x: 75, y: 75 },
+                    { id: 'diaphragm', label: 'Diaphragm', x: 75, y: 90 }
+                ]
+            },
+            digestive: {
+                image: 'digestivepractical.jpg',
+                terms: [
+                    { id: 'mouth', label: 'mouth', x: 30, y: 15 },
+                    { id: 'teeth', label: 'teeth', x: 30, y: 18 },
+                    { id: 'tongue', label: 'tongue', x: 30, y: 21 },
+                    { id: 'salivary', label: 'salivary glands', x: 70, y: 18 },
+                    { id: 'pharynx_dig', label: 'pharynx', x: 70, y: 23 },
+                    { id: 'epiglottis', label: 'epiglottis', x: 35, y: 26 },
+                    { id: 'esophagus', label: 'esophagus', x: 70, y: 35 },
+                    { id: 'liver', label: 'liver', x: 35, y: 45 },
+                    { id: 'stomach', label: 'stomach', x: 75, y: 48 },
+                    { id: 'gallbladder', label: 'gallbladder', x: 25, y: 55 },
+                    { id: 'pancreas', label: 'pancreas', x: 25, y: 60 },
+                    { id: 'large_int', label: 'large intestine', x: 25, y: 68 },
+                    { id: 'small_int', label: 'small intestine', x: 25, y: 76 },
+                    { id: 'appendix', label: 'appendix', x: 25, y: 82 },
+                    { id: 'rectum', label: 'rectum', x: 70, y: 85 },
+                    { id: 'anus', label: 'anus', x: 70, y: 90 }
+                ]
+            }
+        };
+
+        // State variables
+        let currentSystem = 'respiratory';
+        let currentMode = 'drag'; // 'drag' or 'type'
+
+        // DOM Elements
+        const systemSelect = document.getElementById('system-select');
+        const modeDragBtn = document.getElementById('mode-drag');
+        const modeTypeBtn = document.getElementById('mode-type');
+        const imgElement = document.getElementById('anatomy-image');
+        const targetsLayer = document.getElementById('targets-layer');
+        const termsContainer = document.getElementById('terms-container');
+        const checkAnswersBtn = document.getElementById('check-answers-btn');
+
+        // Initialize App
+        function init() {
+            renderApp();
+            
+            // Event Listeners
+            systemSelect.addEventListener('change', (e) => {
+                currentSystem = e.target.value;
+                renderApp();
+            });
+
+            modeDragBtn.addEventListener('click', () => {
+                currentMode = 'drag';
+                modeDragBtn.classList.add('active');
+                modeTypeBtn.classList.remove('active');
+                renderApp();
+            });
+
+            modeTypeBtn.addEventListener('click', () => {
+                currentMode = 'type';
+                modeTypeBtn.classList.add('active');
+                modeDragBtn.classList.remove('active');
+                renderApp();
+            });
+
+            checkAnswersBtn.addEventListener('click', checkTypedAnswers);
+        }
+
+        // Render everything based on state
+        function renderApp() {
+            const data = anatomyData[currentSystem];
+            imgElement.src = data.image;
+            targetsLayer.innerHTML = '';
+            termsContainer.innerHTML = '';
+            
+            if (currentMode === 'drag') {
+                checkAnswersBtn.classList.add('hidden');
+                setupDragAndDrop(data);
+            } else {
+                checkAnswersBtn.classList.remove('hidden');
+                setupActiveRecall(data);
+            }
+        }
+
+        // --- MODE 1: DRAG AND DROP ---
+        function setupDragAndDrop(data) {
+            // Shuffle terms for sidebar
+            const shuffledTerms = [...data.terms].sort(() => Math.random() - 0.5);
+
+            // Create Draggable Items
+            shuffledTerms.forEach(term => {
+                const el = document.createElement('div');
+                el.className = 'draggable-item';
+                el.draggable = true;
+                el.textContent = term.label;
+                el.dataset.id = term.id;
+
+                el.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', term.id);
+                    e.dataTransfer.setData('label', term.label);
+                });
+
+                termsContainer.appendChild(el);
+            });
+
+            // Create Drop Targets
+            data.terms.forEach(term => {
+                const target = document.createElement('div');
+                target.className = 'target';
+                target.style.left = `${term.x}%`;
+                target.style.top = `${term.y}%`;
+                target.dataset.targetId = term.id;
+                target.textContent = '?';
+
+                target.addEventListener('dragover', (e) => e.preventDefault());
+                
+                target.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    const draggedLabel = e.dataTransfer.getData('label');
+
+                    if (draggedId === term.id) {
+                        target.textContent = draggedLabel;
+                        target.classList.add('correct');
+                        
+                        // Remove from sidebar
+                        const sidebarItem = document.querySelector(`.draggable-item[data-id="${draggedId}"]`);
+                        if (sidebarItem) sidebarItem.remove();
+                    } else {
+                        target.classList.add('incorrect');
+                        setTimeout(() => target.classList.remove('incorrect'), 800);
+                    }
+                });
+
+                targetsLayer.appendChild(target);
+            });
+        }
+
+        // --- MODE 2: ACTIVE RECALL ---
+        function setupActiveRecall(data) {
+            termsContainer.innerHTML = '<p style="color: #64748b; font-size: 14px;">Type the correct anatomical names into the boxes on the image. Press "Check Answers" when finished.</p>';
+            
+            data.terms.forEach(term => {
+                const target = document.createElement('div');
+                target.className = 'target';
+                target.style.left = `${term.x}%`;
+                target.style.top = `${term.y}%`;
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.dataset.correctAnswer = term.label.toLowerCase();
+                
+                target.appendChild(input);
+                targetsLayer.appendChild(target);
+            });
+        }
+
+        function checkTypedAnswers() {
+            const inputs = targetsLayer.querySelectorAll('input');
+            inputs.forEach(input => {
+                const userAnswer = input.value.trim().toLowerCase();
+                const correctAnswer = input.dataset.correctAnswer;
+                const parent = input.parentElement;
+
+                parent.classList.remove('correct', 'incorrect');
+
+                if (userAnswer === correctAnswer) {
+                    parent.classList.add('correct');
+                    input.disabled = true; // Lock correct answers
+                } else {
+                    parent.classList.add('incorrect');
+                }
+            });
+        }
+
+        // Run app
+        init();
+    </script>
+</body>
+</html>
