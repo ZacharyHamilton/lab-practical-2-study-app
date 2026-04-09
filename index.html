@@ -139,6 +139,30 @@
             width: 100%;
             font-weight: bold;
         }
+
+/* --- MOBILE RESPONSIVENESS --- */
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column; /* Stacks image on top, word bank on bottom */
+                gap: 15px;
+            }
+            .controls {
+                flex-wrap: wrap; /* Allows buttons to wrap to a new line */
+            }
+            button, select {
+                flex: 1 1 40%; /* Makes buttons wider and easier to tap */
+                font-size: 14px;
+            }
+            .target {
+                min-width: 65px; /* Shrinks boxes so they don't overlap as much */
+                font-size: 10px;
+                padding: 2px 4px;
+            }
+            .target input {
+                width: 65px;
+                font-size: 10px;
+            }
+        }
     </style>
 </head>
 <body>
